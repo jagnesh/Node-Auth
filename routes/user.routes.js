@@ -6,19 +6,14 @@ import { eq, name } from "drizzle-orm";
 import { error, table } from "node:console";
 import { asyncHandler } from "../middlewares/asyncHandler.js";
 import jwt from "jsonwebtoken";
+import { ensureAuthenticated } from "../middlewares/auth.middleware.js";
 const router = express.Router();
 
 // Protected route: update current user's name
 router.patch(
   "/",
+  ensureAuthenticated,
   asyncHandler(async (req, res) => {
-    const user = req.user;
-
-    // Ensure the request is authenticated
-    if (!user) {
-      return res.status(401).json({ error: "You are not logged in" });
-    }
-
     const { name } = req.body;
 
     // Update the user record in the database
@@ -29,12 +24,8 @@ router.patch(
 );
 
 // Public route: return the authenticated user data
-router.get("/", async (req, res) => {
+router.get("/", ensureAuthenticated, async (req, res) => {
   const user = req.user;
-
-  if (!user) {
-    return res.status(400).json({ error: "You are not logged in user" });
-  }
 
   return res.json({ user });
 });
@@ -81,6 +72,7 @@ router.post(
         email: usersTable.email,
         salt: usersTable.salt,
         password: usersTable.password,
+        role: usersTable.role,
       })
       .from(usersTable)
       .where((table) => eq(table.email, email));
@@ -105,6 +97,7 @@ router.post(
       id: existingUser.id,
       email: existingUser.email,
       name: existingUser.name,
+      role: existingUser.role,
     };
 
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
@@ -140,6 +133,7 @@ router.post(
         id: decoded.id,
         email: decoded.email,
         name: decoded.name,
+        role: decoded.role,
       };
 
       const token = jwt.sign(payload, process.env.JWT_SECRET, {
